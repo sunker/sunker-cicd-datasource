@@ -15,6 +15,10 @@ permissions: read-all
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      plugin-id: ${{ steps.metadata.outputs.plugin-id }}
+      plugin-version: ${{ steps.metadata.outputs.plugin-version }}
+      has-e2e: ${{ steps.check-for-e2e.outputs.has-e2e }}
     env:
       GRAFANA_ACCESS_POLICY_TOKEN: ${{ secrets.GRAFANA_ACCESS_POLICY_TOKEN }}
     steps:
@@ -65,6 +69,14 @@ jobs:
           version: latest
           args: buildAll
 
+      - name: Check for E2E
+        id: check-for-e2e
+        run: |
+          if [ -f "playwright.config.ts" ]
+          then
+            echo "has-e2e=true" >> $GITHUB_OUTPUT
+          fi
+
       - name: Get plugin metadata
         id: metadata
         run: |
@@ -90,40 +102,17 @@ jobs:
           name: ${{ steps.metadata.outputs.plugin-id }}-${{ steps.metadata.outputs.plugin-version }}
           path: ${{ steps.metadata.outputs.plugin-id }}
           retention-days: 5
-        - name: Sign plugin
-        run: npm run sign
-        if: ${{ env.GRAFANA_ACCESS_POLICY_TOKEN != '' }}
 
-      - name: Get plugin metadata
-        id: metadata
-        run: |
-          sudo apt-get install jq
-
-          export GRAFANA_PLUGIN_ID=$(cat dist/plugin.json | jq -r .id)
-          export GRAFANA_PLUGIN_VERSION=$(cat dist/plugin.json | jq -r .info.version)
-          export GRAFANA_PLUGIN_ARTIFACT=${GRAFANA_PLUGIN_ID}-${GRAFANA_PLUGIN_VERSION}.zip
-
-          echo "plugin-id=${GRAFANA_PLUGIN_ID}" >> $GITHUB_OUTPUT
-          echo "plugin-version=${GRAFANA_PLUGIN_VERSION}" >> $GITHUB_OUTPUT
-          echo "archive=${GRAFANA_PLUGIN_ARTIFACT}" >> $GITHUB_OUTPUT
-
-      - name: Package plugin
-        id: package-plugin
-        run: |
-          mv dist ${{ steps.metadata.outputs.plugin-id }}
-          zip ${{ steps.metadata.outputs.archive }} ${{ steps.metadata.outputs.plugin-id }} -r
-
-      - name: Archive Build
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.metadata.outputs.plugin-id }}-${{ steps.metadata.outputs.plugin-version }}
-          path: ${{ steps.metadata.outputs.plugin-id }}
-          retention-days: 5
+      # - name: Sign plugin
+      #   run: npm run sign
+      #   if: ${{ env.GRAFANA_ACCESS_POLICY_TOKEN != '' }}
 
   resolve-versions:
     name: Resolve Grafana images
     runs-on: ubuntu-latest
     timeout-minutes: 3
+    needs: build
+    if: ${{ needs.build.outputs.has-e2e == 'true' }}
     outputs:
       matrix: ${{ steps.resolve-versions.outputs.matrix }}
     steps:
@@ -132,7 +121,7 @@ jobs:
       - name: Resolve Grafana E2E versions
         id: resolve-versions
         uses: grafana/plugin-actions/e2e-version@main
-          
+
   playwright-tests:
     needs: resolve-versions
     timeout-minutes: 60
@@ -144,22 +133,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            provisioning
+            tests
+            .config
 
       - name: Download plugin
         uses: actions/download-artifact@v4
         with:
           path: dist
+          name: ${{ needs.build.outputs.plugin-id }}-${{ needs.build.outputs.plugin-version }}
 
-      - name: Display structure of downloaded files
-        run: ls -R dist
-
-      - name: Download plugin
-        uses: actions/download-artifact@v4
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v4
         with:
-          path: ${{ steps.metadata.outputs.plugin-id }}
+          node-version: '20'
+          cache: 'npm'
 
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps
+      - name: Install dev dependencies
+        run: npm install --only=dev
+
+      - name: Execute permissions on binary
+        run: |
+          chmod +x ./dist/gpx_cicd_linux_amd64
 
       - name: Start Grafana
         run: |
@@ -174,59 +171,25 @@ jobs:
           timeout: 60000
           interval: 500
 
+      - name: Install Playwright and Browsers
+        run: npx playwright install chromium --with-deps
+
       - name: Run Playwright tests
         id: run-tests
         run: npx playwright test
 
+      - name: Stop grafana docker
+        run: docker-compose down
+
+      - name: Docker logs
+        if: always()
+        run: |
+          docker logs sunker-cicd-datasource
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
-        if: ${{ (always() && steps.run-tests.outcome == 'success') || (failure() && steps.run-tests.outcome == 'failure') }}
+        if: steps.run-tests.outcome != 'success'
         with:
           name: playwright-report-${{ matrix.GRAFANA_IMAGE.NAME }}-v${{ matrix.GRAFANA_IMAGE.VERSION }}-${{github.run_id}}
           path: playwright-report/
           retention-days: 30
-      # - name: Check for E2E
-      #   id: check-for-e2e
-      #   run: |
-      #     if [ -f "playwright.config.ts" ]
-      #     then
-      #       echo "has-e2e=true" >> $GITHUB_OUTPUT
-      #     fi
-
-      # - name: Install Playwright Browsers
-      #   if: steps.check-for-e2e.outputs.has-e2e == 'true'
-      #   run: npm exec playwright install --with-deps
-
-      # - name: Start grafana docker
-      #   if: steps.check-for-e2e.outputs.has-e2e == 'true'
-      #   run: docker-compose up -d
-
-      # - name: Wait for Grafana to start
-      #   if: steps.check-for-e2e.outputs.has-e2e == 'true'
-      #   uses: nev7n/wait_for_response@v1
-      #   with:
-      #     url: 'http://localhost:3000/'
-      #     responseCode: 200
-      #     timeout: 60000
-      #     interval: 500
-
-      # - name: Run e2e tests
-      #   id: run-e2e-tests
-      #   if: steps.check-for-e2e.outputs.has-e2e == 'true'
-      #   run: npm run e2e
-
-      # - name: Stop grafana docker
-      #   if: steps.check-for-e2e.outputs.has-e2e == 'true'
-      #   run: docker-compose down
-
-      # - name: Archive E2E output
-      #   uses: actions/upload-artifact@v4
-      #   if: steps.check-for-e2e.outputs.has-e2e == 'true' && steps.run-e2e-tests.outcome != 'success'
-      #   with:
-      #     name: playwright-report
-      #     path: playwright-report/
-      #     retention-days: 5
-
-      # - name: Sign plugin
-      #   run: npm run sign
-      #   if: ${{ env.GRAFANA_ACCESS_POLICY_TOKEN != '' }}
