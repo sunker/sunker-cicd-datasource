@@ -65,49 +65,32 @@ jobs:
           version: latest
           args: buildAll
 
-      - name: Check for E2E
-        id: check-for-e2e
+      - name: Get plugin metadata
+        id: metadata
         run: |
-          if [ -f "playwright.config.ts" ]
-          then
-            echo "has-e2e=true" >> $GITHUB_OUTPUT
-          fi
+          sudo apt-get install jq
 
-      - name: Install Playwright Browsers
-        if: steps.check-for-e2e.outputs.has-e2e == 'true'
-        run: npm exec playwright install --with-deps
+          export GRAFANA_PLUGIN_ID=$(cat dist/plugin.json | jq -r .id)
+          export GRAFANA_PLUGIN_VERSION=$(cat dist/plugin.json | jq -r .info.version)
+          export GRAFANA_PLUGIN_ARTIFACT=${GRAFANA_PLUGIN_ID}-${GRAFANA_PLUGIN_VERSION}.zip
 
-      - name: Start grafana docker
-        if: steps.check-for-e2e.outputs.has-e2e == 'true'
-        run: docker-compose up -d
+          echo "plugin-id=${GRAFANA_PLUGIN_ID}" >> $GITHUB_OUTPUT
+          echo "plugin-version=${GRAFANA_PLUGIN_VERSION}" >> $GITHUB_OUTPUT
+          echo "archive=${GRAFANA_PLUGIN_ARTIFACT}" >> $GITHUB_OUTPUT
 
-      - name: Wait for Grafana to start
-        if: steps.check-for-e2e.outputs.has-e2e == 'true'
-        uses: nev7n/wait_for_response@v1
-        with:
-          url: 'http://localhost:3000/'
-          responseCode: 200
-          timeout: 60000
-          interval: 500
+      - name: Package plugin
+        id: package-plugin
+        run: |
+          mv dist ${{ steps.metadata.outputs.plugin-id }}
+          zip ${{ steps.metadata.outputs.archive }} ${{ steps.metadata.outputs.plugin-id }} -r
 
-      - name: Run e2e tests
-        id: run-e2e-tests
-        if: steps.check-for-e2e.outputs.has-e2e == 'true'
-        run: npm run e2e
-
-      - name: Stop grafana docker
-        if: steps.check-for-e2e.outputs.has-e2e == 'true'
-        run: docker-compose down
-
-      - name: Archive E2E output
+      - name: Archive Build
         uses: actions/upload-artifact@v4
-        if: steps.check-for-e2e.outputs.has-e2e == 'true' && steps.run-e2e-tests.outcome != 'success'
         with:
-          name: playwright-report
-          path: playwright-report/
+          name: ${{ steps.metadata.outputs.plugin-id }}-${{ steps.metadata.outputs.plugin-version }}
+          path: ${{ steps.metadata.outputs.plugin-id }}
           retention-days: 5
-
-      - name: Sign plugin
+        - name: Sign plugin
         run: npm run sign
         if: ${{ env.GRAFANA_ACCESS_POLICY_TOKEN != '' }}
 
@@ -136,3 +119,114 @@ jobs:
           name: ${{ steps.metadata.outputs.plugin-id }}-${{ steps.metadata.outputs.plugin-version }}
           path: ${{ steps.metadata.outputs.plugin-id }}
           retention-days: 5
+
+  resolve-versions:
+    name: Resolve Grafana images
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      matrix: ${{ steps.resolve-versions.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Resolve Grafana E2E versions
+        id: resolve-versions
+        uses: grafana/plugin-actions/e2e-version@main
+          
+  playwright-tests:
+    needs: resolve-versions
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        GRAFANA_IMAGE: ${{fromJson(needs.resolve-versions.outputs.matrix)}}
+    name: e2e ${{ matrix.GRAFANA_IMAGE.name }}@${{ matrix.GRAFANA_IMAGE.VERSION }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download plugin
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Display structure of downloaded files
+        run: ls -R dist
+
+      - name: Download plugin
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ steps.metadata.outputs.plugin-id }}
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+
+      - name: Start Grafana
+        run: |
+          docker-compose pull
+          GRAFANA_VERSION=${{ matrix.GRAFANA_IMAGE.VERSION }} GRAFANA_IMAGE=${{ matrix.GRAFANA_IMAGE.NAME }} docker-compose up -d
+
+      - name: Wait for Grafana to start
+        uses: nev7n/wait_for_response@v1
+        with:
+          url: 'http://localhost:3000/'
+          responseCode: 200
+          timeout: 60000
+          interval: 500
+
+      - name: Run Playwright tests
+        id: run-tests
+        run: npx playwright test
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        if: ${{ (always() && steps.run-tests.outcome == 'success') || (failure() && steps.run-tests.outcome == 'failure') }}
+        with:
+          name: playwright-report-${{ matrix.GRAFANA_IMAGE.NAME }}-v${{ matrix.GRAFANA_IMAGE.VERSION }}-${{github.run_id}}
+          path: playwright-report/
+          retention-days: 30
+      # - name: Check for E2E
+      #   id: check-for-e2e
+      #   run: |
+      #     if [ -f "playwright.config.ts" ]
+      #     then
+      #       echo "has-e2e=true" >> $GITHUB_OUTPUT
+      #     fi
+
+      # - name: Install Playwright Browsers
+      #   if: steps.check-for-e2e.outputs.has-e2e == 'true'
+      #   run: npm exec playwright install --with-deps
+
+      # - name: Start grafana docker
+      #   if: steps.check-for-e2e.outputs.has-e2e == 'true'
+      #   run: docker-compose up -d
+
+      # - name: Wait for Grafana to start
+      #   if: steps.check-for-e2e.outputs.has-e2e == 'true'
+      #   uses: nev7n/wait_for_response@v1
+      #   with:
+      #     url: 'http://localhost:3000/'
+      #     responseCode: 200
+      #     timeout: 60000
+      #     interval: 500
+
+      # - name: Run e2e tests
+      #   id: run-e2e-tests
+      #   if: steps.check-for-e2e.outputs.has-e2e == 'true'
+      #   run: npm run e2e
+
+      # - name: Stop grafana docker
+      #   if: steps.check-for-e2e.outputs.has-e2e == 'true'
+      #   run: docker-compose down
+
+      # - name: Archive E2E output
+      #   uses: actions/upload-artifact@v4
+      #   if: steps.check-for-e2e.outputs.has-e2e == 'true' && steps.run-e2e-tests.outcome != 'success'
+      #   with:
+      #     name: playwright-report
+      #     path: playwright-report/
+      #     retention-days: 5
+
+      # - name: Sign plugin
+      #   run: npm run sign
+      #   if: ${{ env.GRAFANA_ACCESS_POLICY_TOKEN != '' }}
