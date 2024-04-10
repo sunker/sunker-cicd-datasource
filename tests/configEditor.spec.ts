@@ -22,5 +22,5 @@ test('"Save & test" should fail when configuration is invalid', async ({
   const configPage = await createDataSourceConfigPage({ type: ds.type });
   await page.getByRole('textbox', { name: 'Path' }).fill(ds.jsonData.path ?? '');
   await expect(configPage.saveAndTest()).not.toBeOK();
-  await expect(configPage).toHaveAlert('error', { hasText: 'API key is missing' });
+  await expect(configPage).toHaveAlert('error', { hasText: 'API key is missings' });
 });
