@@ -143,7 +143,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: dist
-          name: sunker-cicd-datasource-1.0.0/dist/gpx_cicd_linux_amd64
+          name: ${{ needs.build.outputs.plugin-id }}/dist/gpx_cicd_linux_amd64
           # name: ${{ needs.build.outputs.plugin-id }}-${{ needs.build.outputs.plugin-version }}
 
       - name: Setup Node.js environment
