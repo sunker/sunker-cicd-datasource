@@ -143,7 +143,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: dist
-          name: ${{ needs.build.outputs.plugin-id }}
+          name: ${{ needs.build.outputs.plugin-id }}-${{ needs.build.outputs.plugin-version }}
           # name: ${{ needs.build.outputs.plugin-id }}-${{ needs.build.outputs.plugin-version }}
 
       - name: Setup Node.js environment
