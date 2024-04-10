@@ -123,7 +123,7 @@ jobs:
         uses: grafana/plugin-actions/e2e-version@main
 
   playwright-tests:
-    needs: resolve-versions
+    needs: [resolve-versions, build]
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -180,12 +180,20 @@ jobs:
         run: npx playwright test
 
       - name: Docker logs
-        if: always()
+        if: steps.run-tests.outcome != 'success'
         run: |
-          docker logs sunker-cicd-datasource
+          docker logs sunker-cicd-datasource >& grafana-server.log
 
       - name: Stop grafana docker
         run: docker-compose down
+
+      - name: Upload server log
+        uses: actions/upload-artifact@v4
+        if: steps.run-tests.outcome != 'success'
+        with:
+          name: ${{ matrix.GRAFANA_IMAGE.NAME }}-v${{ matrix.GRAFANA_IMAGE.VERSION }}-${{github.run_id}}-server-log
+          path: grafana-server.log
+          retention-days: 5
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -193,4 +201,4 @@ jobs:
         with:
           name: playwright-report-${{ matrix.GRAFANA_IMAGE.NAME }}-v${{ matrix.GRAFANA_IMAGE.VERSION }}-${{github.run_id}}
           path: playwright-report/
-          retention-days: 30
+          retention-days: 5
