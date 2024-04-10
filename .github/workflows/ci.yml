@@ -77,6 +77,10 @@ jobs:
             echo "has-e2e=true" >> $GITHUB_OUTPUT
           fi
 
+      - name: Sign plugin
+        run: npm run sign
+        if: ${{ env.GRAFANA_ACCESS_POLICY_TOKEN != '' }}
+
       - name: Get plugin metadata
         id: metadata
         run: |
@@ -102,10 +106,6 @@ jobs:
           name: ${{ steps.metadata.outputs.plugin-id }}-${{ steps.metadata.outputs.plugin-version }}
           path: ${{ steps.metadata.outputs.plugin-id }}
           retention-days: 5
-
-      # - name: Sign plugin
-      #   run: npm run sign
-      #   if: ${{ env.GRAFANA_ACCESS_POLICY_TOKEN != '' }}
 
   resolve-versions:
     name: Resolve Grafana images
@@ -143,7 +143,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: dist
-          name: sunker-cicd-datasource-1.0.0
+          name: sunker-cicd-datasource-1.0.0/gpx_cicd_linux_amd64
           # name: ${{ needs.build.outputs.plugin-id }}-${{ needs.build.outputs.plugin-version }}
 
       - name: Setup Node.js environment
@@ -153,7 +153,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dev dependencies
-        run: npm install --only=dev
+        run: npm ci
 
       - name: Execute permissions on binary
         run: |
@@ -172,20 +172,20 @@ jobs:
           timeout: 60000
           interval: 500
 
-      - name: Install Playwright and Browsers
+      - name: Install Playwright Browsers
         run: npx playwright install chromium --with-deps
 
       - name: Run Playwright tests
         id: run-tests
         run: npx playwright test
 
-      - name: Stop grafana docker
-        run: docker-compose down
-
       - name: Docker logs
         if: always()
         run: |
           docker logs sunker-cicd-datasource
+
+      - name: Stop grafana docker
+        run: docker-compose down
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
