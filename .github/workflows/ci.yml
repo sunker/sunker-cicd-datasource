@@ -20,6 +20,7 @@ jobs:
       plugin-id: ${{ steps.metadata.outputs.plugin-id }}
       plugin-version: ${{ steps.metadata.outputs.plugin-version }}
       has-e2e: ${{ steps.check-for-e2e.outputs.has-e2e }}
+      has-backend: ${{ steps.check-for-backend.outputs.has-backend }}
     env:
       GRAFANA_ACCESS_POLICY_TOKEN: ${{ secrets.GRAFANA_ACCESS_POLICY_TOKEN }}
     steps:
@@ -141,12 +142,14 @@ jobs:
             .config
 
       - name: Download plugin
+        if: needs.build.outputs.has-backend == 'true'
         uses: actions/download-artifact@v4
         with:
           path: dist
           name: ${{ needs.build.outputs.plugin-id }}-${{ needs.build.outputs.plugin-version }}
 
       - name: Execute permissions on binary
+        if: needs.build.outputs.has-backend == 'true'
         run: |
           chmod +x ./dist/gpx_cicd_linux_amd64
 
