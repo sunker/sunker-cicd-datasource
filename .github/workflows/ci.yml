@@ -109,7 +109,7 @@ jobs:
           retention-days: 5
 
   resolve-versions:
-    name: Resolve Grafana images
+    name: Resolve e2e target images
     runs-on: ubuntu-latest
     timeout-minutes: 3
     needs: build
@@ -145,7 +145,6 @@ jobs:
         with:
           path: dist
           name: ${{ needs.build.outputs.plugin-id }}-${{ needs.build.outputs.plugin-version }}
-          # name: ${{ needs.build.outputs.plugin-id }}-${{ needs.build.outputs.plugin-version }}
 
       - name: Setup Node.js environment
         uses: actions/setup-node@v4
@@ -181,7 +180,7 @@ jobs:
         run: npx playwright test
 
       - name: Docker logs
-        if: ${{ always() && steps.run-tests.outcome == 'success' }}
+        if: ${{ always() && steps.run-tests.outcome == 'failure' }}
         run: |
           docker logs sunker-cicd-datasource >& grafana-server.log
 
@@ -190,7 +189,7 @@ jobs:
 
       - name: Upload server log
         uses: actions/upload-artifact@v4
-        if: ${{ always() && steps.run-tests.outcome == 'success' }}
+        if: ${{ always() && steps.run-tests.outcome == 'failure' }}
         with:
           name: ${{ matrix.GRAFANA_IMAGE.NAME }}-v${{ matrix.GRAFANA_IMAGE.VERSION }}-${{github.run_id}}-server-log
           path: grafana-server.log
@@ -198,7 +197,7 @@ jobs:
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
-        if: ${{ always() && steps.run-tests.outcome == 'success' }}
+        if: ${{ always() && steps.run-tests.outcome == 'failure' }}
         with:
           name: playwright-report-${{ matrix.GRAFANA_IMAGE.NAME }}-v${{ matrix.GRAFANA_IMAGE.VERSION }}-${{github.run_id}}
           path: playwright-report/
