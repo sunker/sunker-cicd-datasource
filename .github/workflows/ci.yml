@@ -181,7 +181,7 @@ jobs:
         run: npx playwright test
 
       - name: Docker logs
-        if: steps.run-tests.outcome != 'success'
+        if: ${{ always() && steps.run-tests.outcome == 'success' }}
         run: |
           docker logs sunker-cicd-datasource >& grafana-server.log
 
@@ -190,7 +190,7 @@ jobs:
 
       - name: Upload server log
         uses: actions/upload-artifact@v4
-        if: steps.run-tests.outcome != 'success'
+        if: ${{ always() && steps.run-tests.outcome == 'success' }}
         with:
           name: ${{ matrix.GRAFANA_IMAGE.NAME }}-v${{ matrix.GRAFANA_IMAGE.VERSION }}-${{github.run_id}}-server-log
           path: grafana-server.log
@@ -198,7 +198,7 @@ jobs:
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
-        if: steps.run-tests.outcome != 'success'
+        if: ${{ always() && steps.run-tests.outcome == 'success' }}
         with:
           name: playwright-report-${{ matrix.GRAFANA_IMAGE.NAME }}-v${{ matrix.GRAFANA_IMAGE.VERSION }}-${{github.run_id}}
           path: playwright-report/
