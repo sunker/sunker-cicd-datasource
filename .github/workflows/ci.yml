@@ -109,7 +109,7 @@ jobs:
           retention-days: 5
 
   resolve-versions:
-    name: Resolve e2e target images
+    name: Resolve e2e images
     runs-on: ubuntu-latest
     timeout-minutes: 3
     needs: build
@@ -146,6 +146,10 @@ jobs:
           path: dist
           name: ${{ needs.build.outputs.plugin-id }}-${{ needs.build.outputs.plugin-version }}
 
+      - name: Execute permissions on binary
+        run: |
+          chmod +x ./dist/gpx_cicd_linux_amd64
+
       - name: Setup Node.js environment
         uses: actions/setup-node@v4
         with:
@@ -154,10 +158,6 @@ jobs:
 
       - name: Install dev dependencies
         run: npm ci
-
-      - name: Execute permissions on binary
-        run: |
-          chmod +x ./dist/gpx_cicd_linux_amd64
 
       - name: Start Grafana
         run: |
