@@ -126,7 +126,7 @@ jobs:
 
   playwright-tests:
     needs: [resolve-versions, build]
-    timeout-minutes: 60
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -180,7 +180,7 @@ jobs:
 
       - name: Run Playwright tests
         id: run-tests
-        run: npx playwright test
+        run: npm run e2e
 
       - name: Docker logs
         if: ${{ always() && steps.run-tests.outcome == 'failure' }}
