@@ -10,7 +10,9 @@ on:
       - master
       - main
 
-permissions: read-all
+permissions:
+  contents: read
+  id-token: write
 
 jobs:
   build:
@@ -212,4 +214,3 @@ jobs:
         with:
           grafana-version: ${{ matrix.GRAFANA_IMAGE.VERSION }}
           path: packages/plugin-e2e/playwright-report
-  
