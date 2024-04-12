@@ -213,4 +213,4 @@ jobs:
         uses: grafana/plugin-actions/publish-report@main
         with:
           grafana-version: ${{ matrix.GRAFANA_IMAGE.VERSION }}
-          path: packages/plugin-e2e/playwright-report
+          path: playwright-report
