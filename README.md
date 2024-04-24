@@ -8,81 +8,60 @@ Grafana supports a wide range of data sources, including Prometheus, MySQL, and 
 
 ## Getting started
 
-### Backend
-
-1. Update [Grafana plugin SDK for Go](https://grafana.com/developers/plugin-tools/introduction/grafana-plugin-sdk-for-go) dependency to the latest minor version:
-
-   ```bash
-   go get -u github.com/grafana/grafana-plugin-sdk-go
-   go mod tidy
-   ```
-
-2. Build backend plugin binaries for Linux, Windows and Darwin:
-
-   ```bash
-   mage -v
-   ```
-
-3. List all available Mage targets for additional commands:
-
-   ```bash
-   mage -l
-   ```
-
 ### Frontend
 
 1. Install dependencies
 
    ```bash
-   npm install
+   pnpm install
    ```
 
 2. Build plugin in development mode and run in watch mode
 
    ```bash
-   npm run dev
+   pnpm run dev
    ```
 
 3. Build plugin in production mode
 
    ```bash
-   npm run build
+   pnpm run build
    ```
 
 4. Run the tests (using Jest)
 
    ```bash
    # Runs the tests and watches for changes, requires git init first
-   npm run test
+   pnpm run test
 
    # Exits after running all the tests
-   npm run test:ci
+   pnpm run test:ci
    ```
 
 5. Spin up a Grafana instance and run the plugin inside it (using Docker)
 
    ```bash
-   npm run server
+   pnpm run server
    ```
 
 6. Run the E2E tests (using Cypress)
 
    ```bash
    # Spins up a Grafana instance first that we tests against
-   npm run server
+   pnpm run server
 
    # Starts the tests
-   npm run e2e
+   pnpm run e2e
    ```
 
 7. Run the linter
 
    ```bash
-   npm run lint
+   pnpm run lint
 
    # or
 
-   npm run lint:fix
+   pnpm run lint:fix
    ```
 
 # Distributing your plugin

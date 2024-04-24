@@ -1,5 +1,5 @@
 {
-  "name": "cicd",
+  "name": "testpnpm",
   "version": "1.0.0",
   "description": "",
   "scripts": {
@@ -9,7 +9,7 @@
     "test:ci": "jest --passWithNoTests --maxWorkers 4",
     "typecheck": "tsc --noEmit",
     "lint": "eslint --cache --ignore-path ./.gitignore --ext .js,.jsx,.ts,.tsx .",
-    "lint:fix": "npm run lint -- --fix",
+    "lint:fix": "pnpm run lint --fix",
     "e2e": "playwright test",
     "server": "docker-compose up --build",
     "sign": "npx --yes @grafana/sign-plugin@latest"
@@ -61,11 +61,12 @@
     "@emotion/css": "11.10.6",
     "@grafana/data": "10.3.3",
     "@grafana/runtime": "10.3.3",
-    "@grafana/ui": "10.3.3",
     "@grafana/schema": "10.3.3",
+    "@grafana/ui": "10.3.3",
     "react": "18.2.0",
     "react-dom": "18.2.0",
+    "rxjs": "^7.8.1",
     "tslib": "2.5.3"
   },
-  "packageManager": "npm@10.1.0"
+  "packageManager": "pnpm@8.14.3"
 }
